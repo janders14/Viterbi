@@ -1,0 +1,240 @@
+#include "header.h"
+#include <iostream>
+#include <stdlib.h>
+#include <iostream>
+#include <fstream>
+
+void next(int currentState);
+void hamming(char rec,int state);
+char ones(char n);
+char nextPossibleStates[2];
+char compare[2];
+int traceback[14];							//traceback table
+//int t = 0;
+int rec0 = 0;			//keep track of first bit received
+int rec1 = 1;			//keep track of second bit received
+char* nextStates;			//pointer to next possible states
+char* hamm;				//keep hold of hamming distances 
+char receiveMSB, receiveLSB, received, nextState0,nextState1;		//hold values of received bits and next states
+int sum0, sum1,tmp0,tmp1,ham0,ham1;  		//hold temp values of accumaltion comparison and hamming distances
+void reset();
+//char string_array[10];
+int track = 0;
+int done = 0;
+
+
+
+
+using namespace std;
+//char data[28] = { '0','0','0','0','0','0','1','1','0','1','1','1','0','0','0','1','0','1','0','0','0','0','1','0','1','1','0','0'}; //H plus 6 zeros
+//char data[28] = { '1','1',   '0','1',   '1','1',  '1','1',  '0','0',  '1','0',  '0','0',  '0','1',  '1','1',  '1','1',   '0','0',  '1','0',  '1','1',  '0','0'}; //A plus 6 zeros
+//char data[14] = { '1', '1', '0', '1', '1', '1', '1', '0', '0', '1', '0', '1', '1'}; //1 plus 6 0's
+char data[1000];
+
+void viterbi_rogue(char rogue_data[28]){
+
+			//received = 0;
+			//receiveMSB = 0;
+			//receiveLSB = 0;
+			rec0 = 0;
+			rec1 = 1;
+
+		for(int t = 0; t < 14; t++){				//loop through all stages
+			
+
+				receiveMSB = rogue_data[rec0];		//receive first bit of code word
+				receiveLSB = rogue_data[rec1];		//receive second bit of code word
+				rec0 += 2;				//increment receiver by two for next time
+				rec1 +=2;
+				received = ((receiveMSB << 1) & 2) | receiveLSB;		//combine code word into 1 byte
+				//cout << "received in viterbi code word int" << (int)received << endl; 
+
+
+				for(int i = 0; i<64; i++){				//loop through all possible states
+		
+					if(history[i][t] >= 0 || t == 0){			//check if time is 0 or confirm that there was a possible state at this time
+						next(i);				//find next possible states of this given state
+						tmp0 = nextPossibleStates[0];				//get first possible state
+						tmp1 = nextPossibleStates[1];				//get second possible state
+						//cout << "possible next states from " << i << " are " << tmp0 << " " << tmp1 << endl; 
+						
+						hamming(received,i);		//calc ham of received code word comapred to the possible state we're in 
+						ham0 = compare[0];			//temp value for first ham given a 0 input
+						ham1 = compare[1];			//temp value for second ham given a 1 input
+						//cout << "hamming distance from a state of " << i << " is " << ham0 << " " << ham1 << endl;		//test hamming
+			
+			
+						nextState0 = nextPossibleStates[0];			//hold next possible states 	
+						nextState1 = nextPossibleStates[1];
+						
+
+						sum0 = ham0 + ham[i][t];		//calculate accumaltion of current state branch plus ham with input 0
+						sum1 = ham1 + ham[i][t];		//calculate accumaltion of current state branch plus ham with input 1
+						//cout << "checking "<< sum0 << " - " << ham[nextState0][t+1]<< endl;
+					
+						if(sum0 < ham[nextState0][t+1] || ham[nextState0][t+1] < 0){		//check if new accumaltion is better or if there was a null value
+							ham[nextState0][t+1] = sum0;			//overwrite the value
+							//cout << "overwrote first" << endl;
+							history[nextState0][t+1]= i;		//store state in table and overwrite predecessor
+						//int temp = history[nextState0][t+1]= i;
+						//cout << "Updated history table for next state  " << nextState0 << " at time " << t+1 << " with value " << temp << endl;
+
+						}
+						//cout << "checking "<< sum1 << " - " << ham[nextState1][t+1]<< endl;
+						if(sum1 < ham[nextState1][t+1] || ham[nextState1][t+1] < 0){
+							ham[nextState1][t+1] = sum1;
+							//cout << "overwrote second" << endl;
+							history[nextState1][t+1] = i;
+							//int temp = history[nextState1][t+1]= i;
+						//cout << "Updated history table for next state  " << nextState1 << " at time " << t+1 << " with value " << temp << endl;
+						}				
+
+
+						tmp0 = ham[nextState0][t+1];
+						tmp1 = ham[nextState1][t+1];			//check accumaltion values			
+						//cout << "accumalted hamming distance of state " << int(nextState0) << " is "<< tmp0 << endl;			
+						//cout << "accumalted hamming distance of state " << int(nextState1) << " is " << tmp1 << endl << endl;
+						//cout << endl;
+						
+						if(t == 0){
+							break;			//time 0 is a special case
+						}				
+			
+					}
+				}
+
+
+		}
+
+////////////////////////////////////////////////////////////////////////////////////   //Traceback
+
+
+
+			int current = 0;
+			int column = 14;
+			int hotState, decoded;
+			
+
+		for(int k = 0; k < 14; k++){
+			
+			hotState = history[current][column];
+			//cout << "hot state is " << hotState << endl;
+		 	decoded = in[hotState][current];
+			//cout << "Decoded " << decoded << endl << endl;
+			current = hotState;
+			traceback[column-1]= decoded;
+			column--;
+		}
+		
+		char decoded_rec = 0x0;
+		for(int k = 0; k <7; k++){
+			int temp = traceback[k];
+			//cout << temp;
+			decoded_rec = decoded_rec | temp << k;
+		}
+		data[track] = decoded_rec;
+
+		//
+		int tmp0= data[track-1];
+		cout << "prev and rec " << tmp0 << "  " << (int)decoded_rec<< " which is " << decoded_rec  << endl;
+		int cmpare = tmp0 + int(decoded_rec);
+		if(cmpare > 11){
+			//cout << endl << "Decoded " << decoded_rec << endl;
+			ofstream write;
+			write.open("hacked.txt",fstream::in | fstream::out | fstream::app);		
+			write << decoded_rec;	
+			write.close();
+			track++;
+		}
+		else{
+			if(done==0){
+				ofstream write;
+				write.open("hacked.txt",fstream::in | fstream::out | fstream::app);	
+				write << "\n\n";
+				write.close();
+				done++;
+			}
+		}
+		
+		/*
+		string_array[track++] = decoded_rec;
+
+		if(track ==10){
+			for(int i = 0; i <10; i++){
+				cout << string_array[i]; 
+			}
+		}
+*/
+		reset();
+
+	
+
+}
+
+void next(int currentState){
+		
+	nextPossibleStates[0] = nextState[currentState][0];	//calculate next possible state based of the current state and if the input was decoded to be a 0
+	nextPossibleStates[1] = nextState[currentState][1];	//calculate next possible state based of the current state and if the input was decoded to be a 1
+}
+
+void hamming(char rec,int state){
+	char value0 = out[state][0];		//if decoded a 0, get encoded output
+	char value1 = out[state][1];		//if decoded a 1, get encoded output
+	compare[0] = value0 ^ rec;			//xor first received bit and possible decoded bit
+	compare[1] = value1 ^ rec;			//xor second received bit and possible decoded bit
+	char ham0 = ones(compare[0]);			//call ones function to find the difference		
+	char ham1 = ones(compare[1]);		
+	compare[0] = ham0;				//store hamming distance of input 1 into compare
+	compare[1] = ham1;				//store hamming distance of input 1 into compare
+}
+
+char ones(char n) {					//counts the numbe rof ones in the byte
+	char sum = 0;
+	for(int i = 0; i < 8; i++) {
+		//cout <<"loop "<< n << " " << sum << "\n";
+		if(n & (1 << i)) {
+			sum++;
+			//cout << n << " " << sum << "\n";
+		}
+	}
+	return sum - 2;
+}
+void reset(){
+
+
+	for(int i = 0; i <64; i++){
+		for(int j = 0; j<15; j++){
+			if(i == 0 && j==0){			
+				history[i][j] = 0;
+			}
+			else{
+				history[i][j] = -1;
+			}
+			
+			if(j == 0){
+				ham[i][j] = 0;
+			}
+			else{
+				ham[i][j] = -1;
+			}			
+	
+		}
+	}
+
+}
+
+
+/*
+
+
+
+
+	for(int i = 0; i < 64; i++){
+		for(int k = 0; k<15; k++){
+			history[i][k] = historyC[i][k];	
+			ham[i][k] = hamC[i][k];
+		}
+	}
+
+*/
+
